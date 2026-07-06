@@ -20,7 +20,7 @@ import (
     "io"
     "os"
 
-    "gff3-go"
+    "github.com/EndCredits/gff3-go"
 )
 
 func main() {
@@ -172,8 +172,8 @@ go run ./gff3idx/cmd/gff3index/ annotations.gff3 annotations.gff3idx
 
 ```go
 import (
-    "gff3-go"
-    "gff3-go/gff3idx"
+    "github.com/EndCredits/gff3-go"
+    "github.com/EndCredits/gff3-go/gff3idx"
 )
 
 func main() {

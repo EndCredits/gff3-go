@@ -5,8 +5,8 @@ import (
 	"os"
 	"sort"
 
-	"gff3-go"
-	"gff3-go/gff3idx"
+	"github.com/EndCredits/gff3-go"
+	"github.com/EndCredits/gff3-go/gff3idx"
 )
 
 func main() {

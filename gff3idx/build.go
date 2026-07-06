@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"gff3-go"
+	"github.com/EndCredits/gff3-go"
 
 	"github.com/zeebo/xxh3"
 )

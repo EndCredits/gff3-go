@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gff3-go"
+	"github.com/EndCredits/gff3-go"
 )
 
 func parseTestRecords(data string) []*gff3.Record {

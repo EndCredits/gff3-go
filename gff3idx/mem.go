@@ -3,7 +3,7 @@ package gff3idx
 import (
 	"sort"
 
-	"gff3-go"
+	"github.com/EndCredits/gff3-go"
 )
 
 type MemQuerier struct {

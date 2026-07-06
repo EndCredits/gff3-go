@@ -232,7 +232,7 @@ LineFASTA      // > sequence header
 
 ## Binary index (`gff3idx`, Unix only)
 
-The binary index is a mmap-based persistent index built from parsed records. Import as `gff3-go/gff3idx`.
+The binary index is a mmap-based persistent index built from parsed records. Import as `github.com/EndCredits/gff3-go/gff3idx`.
 
 > **Dependencies:** `zeebo/xxh3`, `golang.org/x/sys/unix` (optional; only needed if you use this sub-package)
 

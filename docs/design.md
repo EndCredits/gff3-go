@@ -5,7 +5,7 @@
 ```
 gff3.go              Public API (type aliases, single import surface)
 ├── internal/gff3/   GFF3 parser + writer (module: gff3-go, zero deps)
-└── gff3idx/         Binary index — mmap, O(1) lookup (module: gff3-go/gff3idx)
+└── gff3idx/         Binary index — mmap, O(1) lookup (module: github.com/EndCredits/gff3-go/gff3idx)
 ```
 
 `gff3.go` re-exports all public symbols from `internal/gff3/` via Go type aliases (`type Record = gff3.Record`). This keeps the API surface visible in one file while the implementation is organized across multiple internal files.

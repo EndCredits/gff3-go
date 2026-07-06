@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"gff3-go"
+	"github.com/EndCredits/gff3-go"
 )
 
 type DirectiveSummary struct {

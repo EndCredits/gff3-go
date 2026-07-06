@@ -71,7 +71,7 @@
 package gff3
 
 import (
-	"gff3-go/internal/gff3"
+	"github.com/EndCredits/gff3-go/internal/gff3"
 )
 
 // Record represents a single GFF3 feature line (9 columns).
