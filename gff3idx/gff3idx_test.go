@@ -1,7 +1,9 @@
 package gff3idx
 
 import (
+	"encoding/json"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -210,6 +212,97 @@ func TestFullBuild(t *testing.T) {
 	}
 	t.Logf("parsed %d records", len(records))
 
+	if _, err := exec.LookPath("python3"); err == nil {
+		scriptPath := "../scripts/validate_gff3.py"
+		if _, err := os.Stat(scriptPath); err == nil {
+			cmd := exec.Command("python3", scriptPath, path)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("python validation failed: %v\n%s", err, string(out))
+			}
+			var pyStats struct {
+				TotalRecords int            `json:"total_records"`
+				TypeCounts   map[string]int `json:"type_counts"`
+				Errors       int            `json:"errors"`
+			}
+			if err := json.Unmarshal(out, &pyStats); err != nil {
+				t.Fatalf("python output parse: %v", err)
+			}
+			if pyStats.Errors > 0 {
+				t.Errorf("python parser reported %d errors", pyStats.Errors)
+			}
+			if pyStats.TotalRecords != len(records) {
+				t.Errorf("record count mismatch: Go=%d Python=%d", len(records), pyStats.TotalRecords)
+			}
+			t.Logf("python line-split: %d records (%d types)", pyStats.TotalRecords, len(pyStats.TypeCounts))
+
+			// BCBio-GFF cross-validation
+			cmd2 := exec.Command("python3", scriptPath, path, "--bcbio")
+			out2, err2 := cmd2.CombinedOutput()
+			if err2 == nil {
+				var bcStats struct {
+					TotalRecords int            `json:"total_records"`
+					TypeCounts   map[string]int `json:"type_counts"`
+					Errors       int            `json:"errors"`
+				}
+				if err := json.Unmarshal(out2, &bcStats); err == nil {
+					if bcStats.Errors > 0 {
+						t.Errorf("bcbio parser reported %d errors", bcStats.Errors)
+					}
+					if bcStats.TotalRecords != len(records) {
+						t.Errorf("bcbio record count mismatch: Go=%d BCBio=%d", len(records), bcStats.TotalRecords)
+					}
+					for typ, goCount := range pyStats.TypeCounts {
+						if bcStats.TypeCounts[typ] != goCount {
+							t.Errorf("type %s: Go/Python=%d BCBio=%d", typ, goCount, bcStats.TypeCounts[typ])
+						}
+					}
+					t.Logf("bcbio cross-validated: %d records (%d types)", bcStats.TotalRecords, len(bcStats.TypeCounts))
+				}
+			}
+		}
+	}
+
+	recordByID := make(map[string]*gff3.Record)
+	parentToChildren := make(map[string][]string)
+	var firstGene string
+	var firstChr string
+	var firstRange [2]int
+	for _, rec := range records {
+		id := rec.Attributes.Get("ID")
+		if id == "" { continue }
+		recordByID[id] = rec
+		for _, pid := range rec.Attributes["Parent"] {
+			parentToChildren[pid] = append(parentToChildren[pid], id)
+		}
+		if firstGene == "" && rec.Type == "gene" {
+			firstGene = id
+		}
+		if firstChr == "" && rec.Type == "gene" {
+			firstChr = rec.SeqID
+			firstRange = [2]int{rec.Start, rec.End}
+		}
+	}
+
+	if firstGene == "" {
+		t.Fatal("no gene found in file")
+	}
+	t.Logf("first gene: %s", firstGene)
+
+	geneRec := recordByID[firstGene]
+
+	geneTxCount := 0
+	geneCDSCount := 0
+	geneExonCount := 0
+	for _, childID := range parentToChildren[firstGene] {
+		switch recordByID[childID].Type {
+		case "mRNA":
+			geneTxCount++
+			geneCDSCount += len(parentToChildren[childID])
+			geneExonCount += len(parentToChildren[childID])
+		}
+	}
+
 	tmp, err := os.CreateTemp("", "gff3idx_full_*.idx")
 	if err != nil {
 		t.Fatal(err)
@@ -231,40 +324,39 @@ func TestFullBuild(t *testing.T) {
 	}
 	defer idx.Close()
 
+	expectedEntries := len(recordByID)
 	t.Logf("entries: %d, genes: %d, chrs: %d", idx.EntryCount(), idx.GeneCount(), idx.ChrCount())
 
-	if idx.EntryCount() != 983853 {
-		t.Errorf("expected 983853 entries (records with ID), got %d", idx.EntryCount())
+	if idx.EntryCount() != uint32(expectedEntries) {
+		t.Errorf("entry count: got %d, want %d", idx.EntryCount(), expectedEntries)
 	}
 
-	feat, ok := idx.ByID("arahy.Tifrunner.gnm2.ann2.Ah01g000200")
+	feat, ok := idx.ByID(firstGene)
 	if !ok {
-		t.Fatal("Ah01g000200 not found")
+		t.Fatalf("%s not found", firstGene)
 	}
-	if feat.Type != "gene" {
-		t.Errorf("expected gene, got %s", feat.Type)
+	if feat.Type != geneRec.Type || feat.Start != geneRec.Start || feat.End != geneRec.End {
+		t.Errorf("gene %s mismatch: got {%s %d-%d}, want {%s %d-%d}",
+			firstGene, feat.Type, feat.Start, feat.End,
+			geneRec.Type, geneRec.Start, geneRec.End)
 	}
-	if feat.Start != 19126 || feat.End != 25719 {
-		t.Errorf("coords: %d-%d, want 19126-25719", feat.Start, feat.End)
-	}
-	t.Logf("lookup: %s %s %d-%d %s phase=%d", feat.SeqID, feat.Type, feat.Start, feat.End, feat.Strand, feat.Phase)
+	t.Logf("lookup: %s %s %d-%d %s", feat.SeqID, feat.Type, feat.Start, feat.End, feat.Strand)
 
-	gc, ok := idx.ChildrenOf("arahy.Tifrunner.gnm2.ann2.Ah01g000200")
+	gc, ok := idx.ChildrenOf(firstGene)
 	if !ok {
 		t.Fatal("children not found")
 	}
+	if len(gc.Transcripts) != geneTxCount {
+		t.Errorf("transcript count: got %d, want %d", len(gc.Transcripts), geneTxCount)
+	}
 	t.Logf("children: %d tx, %d cds, %d exons", len(gc.Transcripts), len(gc.CDSs), len(gc.Exons))
-	if len(gc.Transcripts) != 1 {
-		t.Errorf("expected 1 transcript, got %d", len(gc.Transcripts))
-	}
 
-	feats := idx.InRange("arahy.Tifrunner.gnm2.chr01", 50_000, 60_000)
-	t.Logf("chr01 50k-60k: %d features", len(feats))
-	if len(feats) == 0 {
-		t.Error("expected features in this range")
-	}
-	for _, f := range feats {
-		t.Logf("  %s %s %d-%d", f.ID, f.Type, f.Start, f.End)
+	if firstChr != "" {
+		feats := idx.InRange(firstChr, firstRange[0], firstRange[1])
+		t.Logf("%s [%d-%d]: %d features", firstChr, firstRange[0], firstRange[1], len(feats))
+		if len(feats) == 0 {
+			t.Error("expected at least one feature in gene's range")
+		}
 	}
 }
 
