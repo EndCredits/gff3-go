@@ -60,7 +60,7 @@ Benchmarks on Apple M1 (single core):
 
 | File | Size | Records | Time | Throughput |
 |------|------|---------|------|-----------|
-| *A. hypogaea* genome | 215 MB | 983,853 | 1.08s | 199 MB/s |
+| *A. hypogaea* genome | 215 MB | 983,853 | 0.95s | 226 MB/s |
 
 Reproduce with:
 
