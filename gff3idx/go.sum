@@ -1,3 +1,5 @@
+github.com/EndCredits/gff3-go v0.1.0 h1:ZAA48Xi2s0EL0MgC6P40UMjKoNPs2nCNGCcgGr6kwaQ=
+github.com/EndCredits/gff3-go v0.1.0/go.mod h1:Tr/5HF1VTG/tA0dPOl4sdC+0NTibecyJOCnWGzH1NNM=
 github.com/klauspost/cpuid/v2 v2.2.9 h1:66ze0taIn2H33fBvCkXuv9BmCwDfafmiIVpKV9kKGuY=
 github.com/klauspost/cpuid/v2 v2.2.9/go.mod h1:rqkxqrZ1EhYM9G+hXH7YdowN5R5RGN6NK4QwQ3WMXF8=
 github.com/zeebo/assert v1.3.0 h1:g7C04CbJuIDKNPFHmsk4hwZDO5O+kntRxzaUoNXj+IQ=
