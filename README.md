@@ -7,7 +7,7 @@ Go library for parsing and writing [GFF3](https://github.com/The-Sequence-Ontolo
 ## Install
 
 ```bash
-go get gff3-go
+go get github.com/EndCredits/gff3-go
 ```
 
 ## Quick start
@@ -51,7 +51,7 @@ func main() {
 - **Attribute parsing**: tag=value pairs, multi-value splitting
 - **Sub-parsers**: `Target`, `Gap` (CIGAR-style)
 - **Validation**: `Record.Validate()`, `DetectCycle()`
-- **Binary index**: mmap-based O(1) lookup and spatial queries (`gff3idx` sub-package, Unix only)
+- **Binary index**: mmap-based O(1) lookup, spatial queries, in-memory mode (`gff3idx`, Unix only, separate module)
 
 > **Note:** The binary index package (`gff3idx`) uses `mmap` and is **Unix-only** (Linux, macOS). The core parser and writer have no platform restrictions.
 
@@ -93,6 +93,7 @@ Outputs JSON with record counts by type, source, strand, unique seqIDs, and any 
   "source_counts": {"maker": 237762, "AUGUSTUS": 157012, ...},
   "strand_counts": {"+": 490545, "-": 493308},
   "unique_seqids": 140,
+  "directives": [{"kind":"gff-version","args":["3"]}],
   "errors": 0
 }
 ```
@@ -136,6 +137,10 @@ for id, recs := range groups {
 ### Cross-validate with Python
 
 ```bash
+# install dependencies (only needed once)
+pip install bcbio-gff
+
+# line-split validation (stdlib only)
 python3 scripts/validate_gff3.py your_annotations.gff3
 ```
 
@@ -156,38 +161,46 @@ Parses the first 5000 records, writes them back, re-parses, and verifies all 9 c
 ### Binary index verification
 
 ```bash
-go run ./gff3idx/cmd/gff3verify/ your_annotations.gff3
+cd gff3idx && go run ./cmd/gff3verify/ your_annotations.gff3
 ```
 
 Builds a binary index from the GFF3 file, then compares all entries, gene hierarchies, and spatial queries against the in-memory reference. Produces `VERIFIED` on success.
 
-## Binary index (Unix only)
-
-Build and query a persistent, mmap-based index.
+### Full integration test (Python cross-validate + index + query)
 
 ```bash
-# Build (CLI)
-go run ./gff3idx/cmd/gff3index/ annotations.gff3 annotations.gff3idx
+GFF3_TEST_FILE=your_annotations.gff3 go test -run TestFullBuild -timeout 120s ./gff3idx/
+```
+
+Parses the file, cross-validates record and type counts against Python (line-split + BCBio-GFF), builds a binary index, then verifies ByID lookup, gene children, and spatial range queries against dynamically derived expectations. No hardcoded values.
+
+## Binary index (`gff3idx`, Unix only)
+
+A separate module (`github.com/EndCredits/gff3-go/gff3idx`) providing O(1) feature lookup and spatial interval queries. Two backends, one interface:
+
+```bash
+go get github.com/EndCredits/gff3-go/gff3idx
 ```
 
 ```go
-import (
-    "github.com/EndCredits/gff3-go"
-    "github.com/EndCredits/gff3-go/gff3idx"
-)
+import "github.com/EndCredits/gff3-go/gff3idx"
 
-func main() {
-    // Build programmatically
-    // gff3idx.Build(records, "annotations.gff3idx")
+// In-memory: zero build cost
+q := gff3idx.Wrap(records)
+feat, _ := q.ByID("Ah01g000200")
 
-    // Query
-    idx, _ := gff3idx.Open("annotations.gff3idx")
-    defer idx.Close()
+// Binary index: persistent, mmap, ~50MB resident
+gff3idx.Build(records, "genes.gff3idx")
+idx, _ := gff3idx.Open("genes.gff3idx")
+feat, _ := idx.ByID("Ah01g000200")
 
-    feat, _ := idx.ByID("Ah01g000200")                    // O(1)
-    children, _ := idx.ChildrenOf("Ah01g000200")           // gene → tx/CDS/exon
-    inRange := idx.InRange("chr01", 1_000_000, 2_000_000) // interval scan
-}
+// Both implement Querier — swap backends without changing code
+func search(q gff3idx.Querier) { ... }
+```
+
+```bash
+# CLI build
+cd gff3idx && go run ./cmd/gff3index/ annotations.gff3 annotations.gff3idx
 ```
 
 | Method | Complexity | Description |
@@ -199,14 +212,15 @@ func main() {
 ### Run unit tests
 
 ```bash
-go test -cover ./internal/gff3/
+go test -cover ./internal/gff3/     # core parser
+cd gff3idx && go test -cover ./...  # binary index
 ```
 
 ## Documentation
 
 - [Design overview](docs/design.md)
 - [API reference](docs/api.md)
-- [Package docs (pkg.go.dev)](https://pkg.go.dev/gff3-go)
+- [Package docs (pkg.go.dev)](https://pkg.go.dev/github.com/EndCredits/gff3-go)
 
 ## License
 
