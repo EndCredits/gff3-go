@@ -202,3 +202,50 @@ func TestReaderInvalidLine(t *testing.T) {
 		t.Error("expected error for invalid strand")
 	}
 }
+
+func TestReaderMissingGFFVersion(t *testing.T) {
+	input := "ctg123\t.\tgene\t1000\t9000\t.\t+\t.\tID=gene00001\n"
+	r := NewReader(strings.NewReader(input))
+	_, err := r.Read()
+	if err == nil {
+		t.Error("expected error for missing ##gff-version")
+	}
+}
+
+func TestReaderTerminatorStopsReading(t *testing.T) {
+	input := "##gff-version 3\nctg123\t.\tgene\t1000\t9000\t.\t+\t.\tID=gene00001\n###\nctg123\t.\tmRNA\t1050\t9000\t.\t+\t.\tID=mRNA00001\n"
+	r := NewReader(strings.NewReader(input))
+
+	rec, err := r.Read()
+	if err != nil {
+		t.Fatalf("Read error: %v", err)
+	}
+	if rec.Type != "gene" {
+		t.Errorf("expected gene, got %s", rec.Type)
+	}
+
+	_, err = r.Read()
+	if err != io.EOF {
+		t.Errorf("expected EOF after ###, got %v", err)
+	}
+
+	if len(r.Directives()) != 2 {
+		t.Errorf("expected 2 directives, got %d", len(r.Directives()))
+	}
+}
+
+func TestReaderTerminatorIncludesDirective(t *testing.T) {
+	input := "##gff-version 3\n###\n"
+	r := NewReader(strings.NewReader(input))
+	_, err := r.Read()
+	if err != io.EOF {
+		t.Errorf("expected EOF, got %v", err)
+	}
+	dirs := r.Directives()
+	if len(dirs) != 2 {
+		t.Fatalf("expected 2 directives, got %d", len(dirs))
+	}
+	if dirs[1].Kind != DirTerminator {
+		t.Errorf("expected DirTerminator, got %v", dirs[1].Kind)
+	}
+}

@@ -103,10 +103,10 @@ func marshalAttributes(attrs Attributes) string {
 	for _, tag := range tags {
 		values := attrs[tag]
 		if multiValueTag(tag) {
-			parts = append(parts, Escape(tag)+"="+escapeMultiValues(values))
+			parts = append(parts, EscapeAttr(tag)+"="+escapeMultiValues(values))
 		} else {
 			for _, v := range values {
-				parts = append(parts, Escape(tag)+"="+EscapeAttr(v))
+				parts = append(parts, EscapeAttr(tag)+"="+EscapeAttr(v))
 			}
 		}
 	}

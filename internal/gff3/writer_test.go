@@ -62,6 +62,35 @@ func TestMarshalRecordMissingFields(t *testing.T) {
 	}
 }
 
+func TestMarshalRoundTripSpecialTagName(t *testing.T) {
+	r := &Record{
+		SeqID:      "chr1",
+		Source:     ".",
+		Type:       "gene",
+		Start:      1000,
+		End:        2000,
+		Score:      ".",
+		Strand:     "+",
+		Phase:      PhaseUndefined,
+		Attributes: Attributes{"my_tag": {"value"}},
+	}
+	line, err := r.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal error: %v", err)
+	}
+	if !strings.Contains(line, "my_tag=value") {
+		t.Errorf("expected my_tag=value in output, got %q", line)
+	}
+
+	var r2 Record
+	if err := r2.Unmarshal(line); err != nil {
+		t.Fatalf("Unmarshal error: %v", err)
+	}
+	if r2.Attributes.Get("my_tag") != "value" {
+		t.Errorf("round-trip failed for custom tag")
+	}
+}
+
 func TestWriterCanonicalGene(t *testing.T) {
 	var buf strings.Builder
 	w := NewWriter(&buf)
@@ -294,6 +323,26 @@ func TestValidate(t *testing.T) {
 		{
 			name: "empty seqid",
 			r:    &Record{SeqID: "", Source: ".", Type: "gene", Start: 1000, End: 2000, Score: ".", Strand: "+", Phase: PhaseUndefined},
+			ok:   false,
+		},
+		{
+			name: "CDS without phase",
+			r:    &Record{SeqID: "chr1", Source: ".", Type: "CDS", Start: 100, End: 300, Score: ".", Strand: "+", Phase: PhaseUndefined},
+			ok:   false,
+		},
+		{
+			name: "CDS with valid phase 2",
+			r:    &Record{SeqID: "chr1", Source: ".", Type: "CDS", Start: 100, End: 300, Score: ".", Strand: "+", Phase: 2},
+			ok:   true,
+		},
+		{
+			name: "seqid with spaces",
+			r:    &Record{SeqID: "chr 1", Source: ".", Type: "gene", Start: 1000, End: 2000, Score: ".", Strand: "+", Phase: PhaseUndefined},
+			ok:   false,
+		},
+		{
+			name: "seqid with leading >",
+			r:    &Record{SeqID: ">chr1", Source: ".", Type: "gene", Start: 1000, End: 2000, Score: ".", Strand: "+", Phase: PhaseUndefined},
 			ok:   false,
 		},
 	}

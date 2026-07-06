@@ -70,18 +70,21 @@ func ParseSequenceRegion(d Directive) (SequenceRegion, error) {
 }
 
 type Reader struct {
-	sc         *bufio.Scanner
-	lineNum    int
-	directives []Directive
-	inFASTA    bool
+	sc          *bufio.Scanner
+	lineNum     int
+	directives  []Directive
+	inFASTA     bool
+	terminated  bool
+	sawVersion  bool
+	firstLine   bool
 }
 
 func NewReader(r io.Reader) *Reader {
-	return &Reader{sc: bufio.NewScanner(r)}
+	return &Reader{sc: bufio.NewScanner(r), firstLine: true}
 }
 
 func (r *Reader) Read() (*Record, error) {
-	if r.inFASTA {
+	if r.inFASTA || r.terminated {
 		return nil, io.EOF
 	}
 
@@ -97,11 +100,16 @@ func (r *Reader) Read() (*Record, error) {
 			if err := r.handleMeta(line); err != nil {
 				return nil, r.wrapErr(err)
 			}
-			if r.inFASTA {
+			if r.inFASTA || r.terminated {
 				return nil, io.EOF
 			}
 			continue
 		}
+
+		if r.firstLine && !r.sawVersion {
+			return nil, r.wrapErr(fmt.Errorf("gff3: missing ##gff-version directive on first line"))
+		}
+		r.firstLine = false
 
 		if line[0] == '>' {
 			r.inFASTA = true
@@ -134,6 +142,12 @@ func (r *Reader) handleMeta(line string) error {
 		r.directives = append(r.directives, d)
 		if d.Kind == DirFASTA {
 			r.inFASTA = true
+		}
+		if d.Kind == DirTerminator {
+			r.terminated = true
+		}
+		if d.Kind == DirGFFVersion {
+			r.sawVersion = true
 		}
 	}
 	return nil

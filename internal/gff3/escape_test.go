@@ -36,8 +36,12 @@ func TestUnescape(t *testing.T) {
 		{"equal%3Dsign", "equal=sign"},
 		{"amp%26ersand", "amp&ersand"},
 		{"comma%2Cseparated", "comma,separated"},
+		{"keep+plus+literal", "keep+plus+literal"},
+		{"coord%2Bshift", "coord+shift"},
 		{".", "."},
 		{"", ""},
+		{"incomplete%", "incomplete%"},
+		{"invalid%XX", "invalid%XX"},
 	}
 
 	for _, tt := range tests {

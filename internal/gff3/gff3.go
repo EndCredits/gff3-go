@@ -1,6 +1,9 @@
 package gff3
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // PhaseUndefined is the sentinel value for features that have no phase (not CDS).
 const PhaseUndefined = -1
@@ -88,6 +91,12 @@ func (r *Record) Validate() error {
 	if r.SeqID == "" {
 		return fmt.Errorf("gff3: seqid must not be empty")
 	}
+	if strings.Contains(r.SeqID, " ") {
+		return fmt.Errorf("gff3: seqid contains unescaped whitespace")
+	}
+	if strings.HasPrefix(r.SeqID, ">") {
+		return fmt.Errorf("gff3: seqid must not begin with '>'")
+	}
 	if r.Start > r.End {
 		return fmt.Errorf("gff3: start (%d) must be <= end (%d)", r.Start, r.End)
 	}
@@ -99,6 +108,9 @@ func (r *Record) Validate() error {
 	}
 	if r.Phase != PhaseUndefined && (r.Phase < 0 || r.Phase > 2) {
 		return fmt.Errorf("gff3: invalid phase %d", r.Phase)
+	}
+	if r.Type == "CDS" && r.Phase == PhaseUndefined {
+		return fmt.Errorf("gff3: CDS features require a defined phase (0, 1, or 2)")
 	}
 	if r.Source == "" {
 		return fmt.Errorf("gff3: source must not be empty")
