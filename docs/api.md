@@ -229,3 +229,106 @@ LineFeature    // feature data line
 LineBlank      // empty line
 LineFASTA      // > sequence header
 ```
+
+## Binary index (`gff3idx`, Unix only)
+
+The binary index is a mmap-based persistent index built from parsed records. Import as `gff3-go/gff3idx`.
+
+> **Dependencies:** `zeebo/xxh3`, `golang.org/x/sys/unix` (optional; only needed if you use this sub-package)
+
+### Build
+
+```go
+func Build(records []*gff3.Record, outPath string) error
+```
+
+Builds a binary index file from parsed GFF3 records.
+
+### Open
+
+```go
+func Open(path string) (*Reader, error)
+```
+
+Mmaps the index file and returns a queryable Reader.
+
+### Reader methods
+
+```go
+func (r *Reader) Close() error
+func (r *Reader) EntryCount() uint32
+func (r *Reader) GeneCount() uint32
+func (r *Reader) ChrCount() uint32
+
+func (r *Reader) ByID(id string) (*Feature, bool)
+func (r *Reader) ChildrenOf(geneID string) (*GeneChildren, bool)
+func (r *Reader) InRange(chr string, minStart, maxEnd int) []SpatialFeat
+```
+
+### Feature
+
+```go
+type Feature struct {
+    SeqID  string
+    Source string
+    Type   string
+    Start  int
+    End    int
+    Score  string
+    Strand string
+    Phase  int
+}
+```
+
+### GeneChildren
+
+```go
+type GeneChildren struct {
+    Transcripts []string  // mRNA IDs
+    CDSs        []string  // CDS feature IDs
+    Exons       []string  // exon feature IDs
+}
+```
+
+### SpatialFeat
+
+```go
+type SpatialFeat struct {
+    Start int
+    End   int
+    ID    string
+    Type  string
+}
+```
+
+### MemQuerier (in-memory)
+
+Zero build cost. Accepts parsed records directly via `Wrap`.
+
+```go
+func Wrap(records []*gff3.Record) *MemQuerier
+
+func (m *MemQuerier) ByID(id string) (*Feature, bool)
+func (m *MemQuerier) ChildrenOf(geneID string) (*GeneChildren, bool)
+func (m *MemQuerier) InRange(chr string, minStart, maxEnd int) []SpatialFeat
+```
+
+### Querier interface
+
+Both `MemQuerier` and `*Reader` satisfy:
+
+```go
+type Querier interface {
+    ByID(id string) (*Feature, bool)
+    ChildrenOf(geneID string) (*GeneChildren, bool)
+    InRange(chr string, minStart, maxEnd int) []SpatialFeat
+}
+```
+
+### Tools
+
+| Command | Description |
+|---------|-------------|
+| `cmd/gff3stat` | Parse GFF3 → JSON statistics |
+| `gff3idx/cmd/gff3index` | Build binary index from GFF3 |
+| `gff3idx/cmd/gff3verify` | Verify binary index against in-memory reference |

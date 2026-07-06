@@ -51,8 +51,9 @@ func main() {
 - **Attribute parsing**: tag=value pairs, multi-value splitting
 - **Sub-parsers**: `Target`, `Gap` (CIGAR-style)
 - **Validation**: `Record.Validate()`, `DetectCycle()`
-- **FASTA section** parsing
-- **CLI tool**: `cmd/gff3stat` for quick statistics
+- **Binary index**: mmap-based O(1) lookup and spatial queries (`gff3idx` sub-package, Unix only)
+
+> **Note:** The binary index package (`gff3idx`) uses `mmap` and is **Unix-only** (Linux, macOS). The core parser and writer have no platform restrictions.
 
 ## Performance
 
@@ -86,6 +87,7 @@ Outputs JSON with record counts by type, source, strand, unique seqIDs, and any 
 
 ```json
 {
+  "file": "annotations.gff3",
   "total_records": 983853,
   "type_counts": {"gene": 83107, "mRNA": 83107, "exon": 417771, "CDS": 399868},
   "source_counts": {"maker": 237762, "AUGUSTUS": 157012, ...},
@@ -150,6 +152,49 @@ go test -run TestRoundTripDeepFile -args -gff3 your_annotations.gff3
 ```
 
 Parses the first 5000 records, writes them back, re-parses, and verifies all 9 columns plus every attribute value are identical.
+
+### Binary index verification
+
+```bash
+go run ./gff3idx/cmd/gff3verify/ your_annotations.gff3
+```
+
+Builds a binary index from the GFF3 file, then compares all entries, gene hierarchies, and spatial queries against the in-memory reference. Produces `VERIFIED` on success.
+
+## Binary index (Unix only)
+
+Build and query a persistent, mmap-based index.
+
+```bash
+# Build (CLI)
+go run ./gff3idx/cmd/gff3index/ annotations.gff3 annotations.gff3idx
+```
+
+```go
+import (
+    "gff3-go"
+    "gff3-go/gff3idx"
+)
+
+func main() {
+    // Build programmatically
+    // gff3idx.Build(records, "annotations.gff3idx")
+
+    // Query
+    idx, _ := gff3idx.Open("annotations.gff3idx")
+    defer idx.Close()
+
+    feat, _ := idx.ByID("Ah01g000200")                    // O(1)
+    children, _ := idx.ChildrenOf("Ah01g000200")           // gene → tx/CDS/exon
+    inRange := idx.InRange("chr01", 1_000_000, 2_000_000) // interval scan
+}
+```
+
+| Method | Complexity | Description |
+|--------|-----------|-------------|
+| `ByID(id)` | O(1) | Lookup feature by ID |
+| `ChildrenOf(geneID)` | O(1) + O(n) children | Gene hierarchy: transcripts, CDSs, exons |
+| `InRange(chr, start, end)` | O(log n + k) | All features overlapping a genomic interval |
 
 ### Run unit tests
 

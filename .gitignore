@@ -1,5 +1,7 @@
 # Build artifacts
 /gff3stat
+/gff3verify
+/gff3idx/gff3index
 *.exe
 
 # IDE
