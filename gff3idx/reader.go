@@ -9,12 +9,19 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Reader is a Querier backed by a memory-mapped binary index file.
+// Created by Open(), must be Closed() to release resources.
 type Reader struct {
 	data []byte
 	f    *os.File
 	hdr  Header
 }
 
+// Open mmaps a binary index file and returns a queryable Reader.
+// The Reader implements Querier. Close() must be called to release
+// the mmap region and file handle.
+//
+// The index file is validated on open (magic, version, bounds checks).
 func Open(path string) (*Reader, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -280,7 +287,7 @@ func sortSearchSpatial(recs []SpatialFeatureRec, target int) int {
 	lo, hi := 0, len(recs)-1
 	for lo <= hi {
 		mid := (lo + hi) / 2
-		if int(recs[mid].Start) < target {
+		if int(recs[mid].End) < target {
 			lo = mid + 1
 		} else {
 			hi = mid - 1

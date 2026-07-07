@@ -6,6 +6,12 @@ import (
 	"github.com/EndCredits/gff3-go"
 )
 
+// MemQuerier is an in-memory index built from parsed GFF3 records.
+// It implements Querier with zero build cost — just wrap your records
+// and start querying.
+//
+// Memory cost is approximately the same as the underlying []*Record slice
+// plus index overhead (maps for ID, gene hierarchy, and spatial).
 type MemQuerier struct {
 	byID      map[string]*gff3.Record
 	geneToTx  map[string][]string
@@ -27,6 +33,10 @@ type idExtent struct {
 	maxEnd   int
 }
 
+// Wrap builds an in-memory Querier from parsed GFF3 records.
+//
+// Records without an ID attribute are skipped. Discontiguous features
+// (same ID on multiple lines) have their coordinate extents merged.
 func Wrap(records []*gff3.Record) *MemQuerier {
 	m := &MemQuerier{
 		byID:      make(map[string]*gff3.Record),
@@ -164,7 +174,7 @@ func (m *MemQuerier) InRange(chr string, minStart, maxEnd int) []SpatialFeat {
 	}
 
 	lo := sort.Search(len(entries), func(i int) bool {
-		return entries[i].start >= minStart
+		return entries[i].end >= minStart
 	})
 
 	var result []SpatialFeat

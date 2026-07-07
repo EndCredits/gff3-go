@@ -308,7 +308,7 @@ func sortSearchSpatialRef(recs []refSpatialFeat, target int) int {
 	lo, hi := 0, len(recs)-1
 	for lo <= hi {
 		mid := (lo + hi) / 2
-		if recs[mid].Start < target {
+		if recs[mid].End < target {
 			lo = mid + 1
 		} else {
 			hi = mid - 1

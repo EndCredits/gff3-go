@@ -19,6 +19,10 @@ type builder struct {
 	pool    map[string]uint32
 }
 
+// Build constructs a binary index file from parsed GFF3 records.
+//
+// The resulting file can be opened with Open() for repeated mmap-based
+// queries. Index size is approximately 150 MB per million records.
 func Build(records []*gff3.Record, outPath string) error {
 	b := &builder{pool: make(map[string]uint32)}
 
